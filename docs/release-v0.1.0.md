@@ -1,5 +1,10 @@
 # Release 0.1.0
 
+Post-publication verification: all 29 unit/HTTP tests pass in a fresh GitHub clone, but
+the live-test file lacks its final newline and fails the formatting gate. Version 0.1.1
+corrects only that formatting issue and release metadata. Use v0.1.1 for installation;
+the original v0.1.0 tag is preserved. There is no runtime or contract change.
+
 ## Compatibility
 
 - API contract: `1`; runtime: Python 3.10 or newer, standard library only.

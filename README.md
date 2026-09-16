@@ -30,7 +30,7 @@ uv run mypy skills/adx-analysis/scripts
 ```
 
 Tests use synthetic responses and require neither Azure nor QM. Release versions are independent
-of the API; version 0.1.0 requires API contract 1.
+of the API; version 0.1.1 requires API contract 1.
 
 ## QM Registration
 
