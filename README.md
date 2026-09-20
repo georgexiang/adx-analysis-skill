@@ -19,6 +19,21 @@ python3 skills/adx-analysis/scripts/query.py vm-health/reasons \
 The URL and dates above are examples. No data is bundled. Inspect returned freshness before
 interpreting results. See [the skill](skills/adx-analysis/SKILL.md) for analysis rules.
 
+## Authenticated APIs
+
+Version 0.1.2 supports an optional `ADX_QUERY_API_CREDENTIAL_FILE` environment variable.
+The operator provisions a JSON object with `api_url` (the exact HTTPS base URL, no trailing
+slash) and `token` (43-128 base64url characters). Use a regular file owned by the execution
+user with mode `0600`, no symlinks in its path, and a restricted directory outside source
+control and published assets. Only the file path belongs in environment configuration.
+The client sends a Bearer header only to that bound service, rejects redirects, and ignores
+ambient HTTP proxies. Without the variable, existing private unauthenticated callers remain
+compatible. Never put credentials in CLI arguments, browser code, prompts or logs.
+
+For rotation, the operator first enables old and new server credentials, atomically replaces
+the protected client file, verifies queries, and then retires the old server credential.
+HTTP 401/403 requires operator action; the client never falls back to anonymous access.
+
 ## Development
 
 ```bash
@@ -30,7 +45,7 @@ uv run mypy skills/adx-analysis/scripts
 ```
 
 Tests use synthetic responses and require neither Azure nor QM. Release versions are independent
-of the API; version 0.1.1 requires API contract 1.
+of the API; version 0.1.2 requires API contract 1.
 
 ## QM Registration
 

@@ -11,6 +11,13 @@ Python 3.10 or newer and a reachable API implementing contract version 1.
 The operator configures `ADX_QUERY_API_URL` in the execution environment.
 This is a service address, not an Azure token. Runtime installation requires no packages.
 
+For an authenticated API, the operator also provisions `ADX_QUERY_API_CREDENTIAL_FILE`.
+It references an owner-only JSON file containing `api_url` and `token`; the URL must match
+the configured HTTPS base URL exactly (without its trailing slash). The file and its parent
+directories must not be symlinks. Keep the file outside repositories and published assets.
+Use the bundled client to consume it; never inspect or print its contents, copy the token into
+arguments, or change the service address to bypass authentication.
+
 ## Workflow
 
 1. Identify the question, explicit UTC start/end and relevant filters. If the time zone
@@ -48,6 +55,9 @@ This is a service address, not an Azure token. Runtime installation requires no 
 On a nonzero exit, report the safe error and request ID if present. Do not substitute invented
 metrics or automatically retry repeatedly. For capacity or timeout failures, suggest a narrower
 window or a later retry; invalid inputs require correction first.
+
+For HTTP 401/403 or credential-file errors, stop and request operator verification of the
+credential, service binding and allowed source. Retain the configured address and authentication.
 
 Complete an investigation only when its claims are tied to successful API results and limitations
 are stated. Store no credentials or raw business responses in this public skill repository.

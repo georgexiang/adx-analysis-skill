@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import re
+import stat
 import sys
 from datetime import datetime, timedelta
 from http.client import HTTPException
@@ -135,6 +137,52 @@ def validate(endpoint: str, parameters: dict[str, str]) -> None:
         raise ClientError("Filter values must contain between 1 and 256 characters")
 
 
+def authentication_headers(base_url: str) -> dict[str, str]:
+    credential_file = os.getenv("ADX_QUERY_API_CREDENTIAL_FILE")
+    if credential_file is None:
+        return {}
+    try:
+        if not credential_file or urlsplit(base_url).scheme != "https":
+            raise ValueError
+        components = os.path.abspath(credential_file).split(os.sep)
+        directory = os.open(os.sep, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            for component in components[1:-1]:
+                child = os.open(
+                    component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory
+                )
+                os.close(directory)
+                directory = child
+            descriptor = os.open(
+                components[-1],
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                dir_fd=directory,
+            )
+        finally:
+            os.close(directory)
+        with os.fdopen(descriptor, "r", encoding="utf-8") as credential:
+            metadata = os.fstat(credential.fileno())
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_mode & 0o077
+                or metadata.st_uid != os.geteuid()
+                or metadata.st_size > 4096
+            ):
+                raise ValueError
+            contents = credential.read(4097)
+        if len(contents) > 4096:
+            raise ValueError
+        config = json.loads(contents)
+        if not isinstance(config, dict) or config.get("api_url") != base_url.rstrip("/"):
+            raise ValueError
+        token = config.get("token")
+        if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43,128}", token):
+            raise ValueError
+        return {"Authorization": f"Bearer {token}"}
+    except (OSError, ValueError):
+        raise ClientError("Invalid API credential file or HTTPS service binding") from None
+
+
 def query(
     base_url: str, endpoint: str, parameters: dict[str, str], timeout: float = 120
 ) -> dict[str, Any]:
@@ -155,11 +203,10 @@ def query(
     except ValueError:
         raise ClientError("Configure a valid HTTP(S) API base URL and bounded timeout") from None
     url = base_url.rstrip("/") + "/api/v1/" + endpoint + "?" + urlencode(parameters)
+    headers = {"Accept": "application/json", **authentication_headers(base_url)}
     opener = build_opener(ProxyHandler({}), NoRedirect())
     try:
-        with opener.open(
-            Request(url, headers={"Accept": "application/json"}), timeout=timeout
-        ) as response:
+        with opener.open(Request(url, headers=headers), timeout=timeout) as response:
             if response.status != 200:
                 raise ClientError("API returned a non-success status")
             content = response.read(MAX_RESPONSE_BYTES + 1)
